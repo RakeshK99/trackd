@@ -78,17 +78,14 @@ Deno.serve(async (req) => {
     }),
   });
 
-  // 3. Webhook scoped to this inbox -> process-email function.
-  await am('/webhooks', {
-    method: 'POST',
-    body: JSON.stringify({
-      url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/process-email`,
-      event_types: ['message.received'],
-      inbox_ids: [inbox.inbox_id],
-    }),
-  });
+  // NOTE: We do NOT create a per-inbox webhook here. A single account-level
+  // webhook (configured once in the AgentMail dashboard -> Webhooks, pointing
+  // at .../functions/v1/process-email) catches message.received for every
+  // inbox and shares ONE signing secret (AGENTMAIL_WEBHOOK_SECRET). This keeps
+  // signature verification simple. process-email resolves the user from
+  // msg.inbox_id, so a global webhook is sufficient.
 
-  // 4. Persist on users row.
+  // 3. Persist on users row.
   await supabaseAdmin
     .from('users')
     .update({
