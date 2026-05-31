@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,21 +10,42 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { STATUS, STATUS_ORDER, T, type AppStatus } from '@/theme/tokens';
 import { supabase } from '@/lib/supabase';
-import { archiveApplication, updateApplication } from '@/lib/applications';
+import {
+  deleteApplication,
+  updateApplication,
+  useApplications,
+} from '@/lib/applications';
 import { StatusBadge } from '@/components/StatusBadge';
+import { logoUrl, searchCompanies } from '@/lib/companies';
 import type { Application, TimelineEvent } from '@/lib/types';
+
+function fmtDB(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+function displayDate(s: string) {
+  return new Date(s).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+}
 
 export default function AppDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { upsertLocal } = useApplications();
+
   const [app, setApp] = useState<Application | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
+
+  // Local editable copies — saved on blur, no separate "edit mode".
+  const [company, setCompany] = useState('');
+  const [role, setRole] = useState('');
+  const [salary, setSalary] = useState('');
   const [notes, setNotes] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -34,8 +57,12 @@ export default function AppDetail() {
         .eq('application_id', id)
         .order('created_at', { ascending: false }),
     ]);
-    setApp(a as Application | null);
-    setNotes((a as Application | null)?.notes ?? '');
+    const row = a as Application | null;
+    setApp(row);
+    setCompany(row?.company ?? '');
+    setRole(row?.role ?? '');
+    setSalary(row?.salary_range ?? '');
+    setNotes(row?.notes ?? '');
     setEvents((ev as TimelineEvent[]) ?? []);
   }
 
@@ -43,31 +70,38 @@ export default function AppDetail() {
     load();
   }, [id]);
 
-  async function saveNotes() {
+  async function patch(p: Partial<Application>) {
     if (!app) return;
-    if ((notes ?? '') === (app.notes ?? '')) return;
-    await updateApplication(app.id, { notes });
+    const { data } = await updateApplication(app.id, p);
+    if (data) {
+      setApp(data);
+      upsertLocal(data);
+    }
   }
 
-  async function setStatus(s: AppStatus) {
+  function maybeSave(field: keyof Application, value: string | null) {
     if (!app) return;
-    const { data } = await updateApplication(app.id, { status: s });
-    if (data) setApp(data);
+    if ((app[field] ?? '') === (value ?? '')) return;
+    patch({ [field]: value } as Partial<Application>);
   }
 
-  async function archive() {
+  function onDelete() {
     if (!app) return;
-    Alert.alert('Archive', `Archive ${app.company}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Archive',
-        style: 'destructive',
-        onPress: async () => {
-          await archiveApplication(app.id);
-          router.back();
+    Alert.alert(
+      'Delete application',
+      `Permanently delete ${app.company}? This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteApplication(app.id);
+            router.back();
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 
   if (!app) {
@@ -78,23 +112,48 @@ export default function AppDetail() {
     );
   }
 
+  // Best-effort logo from the curated company list.
+  const logoMatch = searchCompanies(app.company, 1)[0];
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.surface2 }}>
       <View style={styles.topbar}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Ionicons name="chevron-back" size={26} color={T.ink} />
         </Pressable>
-        <Pressable onPress={archive} hitSlop={10}>
-          <Ionicons name="archive-outline" size={22} color={T.ink2} />
+        <Pressable onPress={onDelete} hitSlop={10}>
+          <Ionicons name="trash-outline" size={22} color="#A52928" />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}>
-        <View>
-          <Text style={styles.company}>{app.company}</Text>
-          <Text style={styles.role}>{app.role}</Text>
-          <View style={{ marginTop: 8 }}>
-            <StatusBadge status={app.status} size="lg" />
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 60 }}>
+        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+          {logoMatch && (
+            <Image
+              source={{ uri: logoUrl(logoMatch.domain, 96) }}
+              style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: T.surface3 }}
+            />
+          )}
+          <View style={{ flex: 1 }}>
+            <TextInput
+              value={company}
+              onChangeText={setCompany}
+              onBlur={() => maybeSave('company', company.trim())}
+              style={styles.companyInput}
+              placeholder="Company"
+              placeholderTextColor={T.ink3}
+            />
+            <TextInput
+              value={role}
+              onChangeText={setRole}
+              onBlur={() => maybeSave('role', role.trim())}
+              style={styles.roleInput}
+              placeholder="Role"
+              placeholderTextColor={T.ink3}
+            />
+            <View style={{ marginTop: 6 }}>
+              <StatusBadge status={app.status} size="lg" />
+            </View>
           </View>
         </View>
 
@@ -107,7 +166,7 @@ export default function AppDetail() {
               return (
                 <Pressable
                   key={s}
-                  onPress={() => setStatus(s)}
+                  onPress={() => patch({ status: s as AppStatus })}
                   style={[
                     styles.pill,
                     { borderColor: active ? st.color : T.border },
@@ -130,11 +189,54 @@ export default function AppDetail() {
         </View>
 
         <View style={styles.card}>
+          <Text style={styles.kicker}>DETAILS</Text>
+
+          <Row label="Salary">
+            <TextInput
+              value={salary}
+              onChangeText={setSalary}
+              onBlur={() => maybeSave('salary_range', salary.trim() || null)}
+              placeholder="—"
+              placeholderTextColor={T.ink3}
+              style={styles.fieldInput}
+            />
+          </Row>
+
+          <Row label="Applied">
+            <Pressable onPress={() => setShowPicker((v) => !v)} style={{ flex: 1 }}>
+              <Text style={styles.fieldText}>
+                {app.applied_date ? displayDate(app.applied_date) : 'Pick a date'}
+              </Text>
+            </Pressable>
+          </Row>
+
+          {showPicker && (
+            <View style={{ marginTop: 4, alignItems: 'center' }}>
+              <DateTimePicker
+                value={app.applied_date ? new Date(app.applied_date) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                maximumDate={new Date()}
+                onChange={(_e, selected) => {
+                  if (Platform.OS !== 'ios') setShowPicker(false);
+                  if (selected) patch({ applied_date: fmtDB(selected) });
+                }}
+              />
+              {Platform.OS === 'ios' && (
+                <Pressable onPress={() => setShowPicker(false)} style={styles.doneBtn}>
+                  <Text style={styles.doneText}>Done</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.card}>
           <Text style={styles.kicker}>NOTES</Text>
           <TextInput
             value={notes}
             onChangeText={setNotes}
-            onBlur={saveNotes}
+            onBlur={() => maybeSave('notes', notes)}
             multiline
             placeholder="Contacts, next steps, prep links…"
             placeholderTextColor={T.ink3}
@@ -170,6 +272,17 @@ export default function AppDetail() {
   );
 }
 
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
+      <Text style={{ width: 70, fontFamily: 'Outfit_500Medium', fontSize: 12, color: T.ink2 }}>
+        {label}
+      </Text>
+      <View style={{ flex: 1 }}>{children}</View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   topbar: {
     flexDirection: 'row',
@@ -177,8 +290,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  company: { fontFamily: 'DMSerifDisplay_400Regular', fontSize: 30, color: T.ink },
-  role: { fontFamily: 'Outfit_400Regular', fontSize: 14, color: T.ink2, marginTop: 4 },
+  companyInput: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 28,
+    color: T.ink,
+    padding: 0,
+  },
+  roleInput: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 14,
+    color: T.ink2,
+    marginTop: 2,
+    padding: 0,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -195,6 +319,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: '#fff',
   },
+  fieldInput: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 14,
+    color: T.ink,
+    paddingVertical: 4,
+  },
+  fieldText: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 14,
+    color: T.ink,
+    paddingVertical: 4,
+  },
   notes: {
     minHeight: 110,
     fontFamily: 'Outfit_400Regular',
@@ -205,4 +341,12 @@ const styles = StyleSheet.create({
   event: { paddingVertical: 8, borderTopWidth: 0.5, borderTopColor: T.border },
   eventTitle: { fontFamily: 'Outfit_500Medium', fontSize: 13, color: T.ink },
   eventMeta: { fontFamily: 'DMMono_400Regular', fontSize: 11, color: T.ink3, marginTop: 2 },
+  doneBtn: {
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: T.greenLight,
+  },
+  doneText: { color: T.greenDark, fontFamily: 'Outfit_600SemiBold', fontSize: 13 },
 });

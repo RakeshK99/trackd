@@ -2,12 +2,10 @@ import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { STATUS, STATUS_ORDER, T } from '@/theme/tokens';
-import { useAuth } from '@/lib/auth';
 import { useApplications } from '@/lib/applications';
 
 export default function Analytics() {
-  const { user } = useAuth();
-  const { apps } = useApplications(user?.id);
+  const { apps } = useApplications();
 
   const stats = useMemo(() => {
     const total = apps.length || 1;

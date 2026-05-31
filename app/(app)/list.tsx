@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { CompanyAvatar } from '@/components/CompanyAvatar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { T } from '@/theme/tokens';
-import { useAuth } from '@/lib/auth';
 import { useApplications } from '@/lib/applications';
 import type { Application } from '@/lib/types';
 
@@ -20,9 +19,8 @@ const FILTERS = [
 type FilterKey = (typeof FILTERS)[number]['k'];
 
 export default function AllApps() {
-  const { user } = useAuth();
   const router = useRouter();
-  const { apps } = useApplications(user?.id);
+  const { apps } = useApplications();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [q, setQ] = useState('');
 

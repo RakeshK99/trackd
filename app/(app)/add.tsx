@@ -10,21 +10,32 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { STATUS, STATUS_ORDER, T, type AppStatus } from '@/theme/tokens';
 import { useAuth } from '@/lib/auth';
-import { createApplication } from '@/lib/applications';
+import { createApplication, useApplications } from '@/lib/applications';
+import { CompanyAutocomplete } from '@/components/CompanyAutocomplete';
+
+function fmtDate(d: Date) {
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD for DB
+}
+function displayDate(d: Date) {
+  return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+}
 
 export default function AddJob() {
   const { user, refreshUser } = useAuth();
+  const { upsertLocal } = useApplications();
   const router = useRouter();
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   const [salary, setSalary] = useState('');
   const [status, setStatus] = useState<AppStatus>('applied');
-  const [appliedDate, setAppliedDate] = useState('');
+  const [appliedDate, setAppliedDate] = useState<Date | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function save() {
@@ -34,23 +45,27 @@ export default function AddJob() {
       return;
     }
     setBusy(true);
-    const { error } = await createApplication({
+    const { data, error } = await createApplication({
       user_id: user.id,
       company,
       role,
       status,
       salary_range: salary.trim() || null,
-      applied_date: appliedDate.trim() || null,
+      applied_date: appliedDate ? fmtDate(appliedDate) : null,
     });
     setBusy(false);
     if (error) {
       if (error.message?.includes('FREE_TIER_LIMIT')) {
-        Alert.alert('Free tier limit', 'You hit 15 active applications. Upgrade to Trackd Pro or archive an app to add more.');
+        Alert.alert(
+          'Free tier limit',
+          'You hit 15 active applications. Upgrade to Trackd Pro or delete one to add more.',
+        );
       } else {
         Alert.alert('Error', error.message);
       }
       return;
     }
+    if (data) upsertLocal(data);
     await refreshUser();
     router.back();
   }
@@ -71,11 +86,51 @@ export default function AddJob() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-          <Field label="Company" value={company} onChangeText={setCompany} placeholder="Stripe" />
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View>
+            <Text style={styles.kicker}>COMPANY</Text>
+            <CompanyAutocomplete value={company} onChangeText={setCompany} />
+          </View>
+
           <Field label="Role" value={role} onChangeText={setRole} placeholder="SWE Intern · Summer '26" />
           <Field label="Salary (optional)" value={salary} onChangeText={setSalary} placeholder="$58/hr" />
-          <Field label="Applied date (YYYY-MM-DD, optional)" value={appliedDate} onChangeText={setAppliedDate} placeholder="2026-05-21" />
+
+          <View>
+            <Text style={styles.kicker}>APPLIED DATE (OPTIONAL)</Text>
+            <Pressable onPress={() => setShowPicker((v) => !v)} style={styles.input}>
+              <Text
+                style={{
+                  fontFamily: 'Outfit_400Regular',
+                  fontSize: 15,
+                  color: appliedDate ? T.ink : T.ink3,
+                }}
+              >
+                {appliedDate ? displayDate(appliedDate) : 'Pick a date'}
+              </Text>
+            </Pressable>
+            {showPicker && (
+              <View style={{ marginTop: 8, backgroundColor: '#fff', borderRadius: 12, padding: 8 }}>
+                <DateTimePicker
+                  value={appliedDate ?? new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  maximumDate={new Date()}
+                  onChange={(_e, selected) => {
+                    if (Platform.OS !== 'ios') setShowPicker(false);
+                    if (selected) setAppliedDate(selected);
+                  }}
+                />
+                {Platform.OS === 'ios' && (
+                  <Pressable onPress={() => setShowPicker(false)} style={styles.doneBtn}>
+                    <Text style={styles.doneText}>Done</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+          </View>
 
           <Text style={styles.kicker}>STATUS</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -167,4 +222,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: '#fff',
   },
+  doneBtn: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: T.greenLight,
+  },
+  doneText: { color: T.greenDark, fontFamily: 'Outfit_600SemiBold', fontSize: 13 },
 });

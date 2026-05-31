@@ -19,7 +19,7 @@ import { useApplications } from '@/lib/applications';
 export default function Pipeline() {
   const { user } = useAuth();
   const router = useRouter();
-  const { apps, loading } = useApplications(user?.id);
+  const { apps, loading } = useApplications();
 
   const grouped = useMemo(() => {
     const out: Record<string, typeof apps> = {};

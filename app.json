@@ -13,7 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0A2E1F"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.trackd.ios",
@@ -44,14 +46,20 @@
           "color": "#1D9E75"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": { "origin": false },
-      "eas": { "projectId": "REPLACE_WITH_EAS_PROJECT_ID" }
-    }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "0c062eba-78d9-4b8e-b298-fa7c3293f3af"
+      }
+    },
+    "owner": "rakesh.vk"
   }
 }

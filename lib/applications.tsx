@@ -1,15 +1,43 @@
-// Data access for applications + realtime subscription.
-import { useEffect, useMemo, useState } from 'react';
+// Single owner for applications state: one fetch, one realtime subscription,
+// many consumers via React context. Solves duplicate-channel crashes when
+// multiple screens mount the hook and gives every screen O(1) updates.
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { supabase } from './supabase';
 import type { Application } from './types';
 import type { AppStatus } from '@/theme/tokens';
 
-export function useApplications(userId: string | undefined) {
+interface Ctx {
+  apps: Application[];
+  loading: boolean;
+  /** Merge a row into local state without a refetch (optimistic / post-insert). */
+  upsertLocal: (row: Application) => void;
+}
+
+const ApplicationsCtx = createContext<Ctx | undefined>(undefined);
+
+export function ApplicationsProvider({
+  userId,
+  children,
+}: {
+  userId: string | undefined;
+  children: ReactNode;
+}) {
   const [byId, setById] = useState<Record<string, Application>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setById({});
+      setLoading(false);
+      return;
+    }
     let mounted = true;
     setLoading(true);
 
@@ -55,14 +83,31 @@ export function useApplications(userId: string | undefined) {
   }, [userId]);
 
   const apps = useMemo(
-    () =>
-      Object.values(byId).sort((a, b) => b.last_activity.localeCompare(a.last_activity)),
+    () => Object.values(byId).sort((a, b) => b.last_activity.localeCompare(a.last_activity)),
     [byId],
   );
 
-  return { apps, loading };
+  const value = useMemo<Ctx>(
+    () => ({
+      apps,
+      loading,
+      upsertLocal: (row) => setById((prev) => ({ ...prev, [row.id]: row })),
+    }),
+    [apps, loading],
+  );
+
+  return <ApplicationsCtx.Provider value={value}>{children}</ApplicationsCtx.Provider>;
 }
 
+export function useApplications(): Ctx {
+  const ctx = useContext(ApplicationsCtx);
+  if (!ctx) throw new Error('useApplications outside ApplicationsProvider');
+  return ctx;
+}
+
+// =====================================================================
+// Mutations
+// =====================================================================
 export async function createApplication(input: {
   user_id: string;
   company: string;
@@ -102,4 +147,8 @@ export async function updateApplication(id: string, patch: Partial<Application>)
 
 export async function archiveApplication(id: string) {
   return supabase.from('applications').update({ archived: true }).eq('id', id);
+}
+
+export async function deleteApplication(id: string) {
+  return supabase.from('applications').delete().eq('id', id);
 }
