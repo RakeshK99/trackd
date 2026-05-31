@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { T } from '@/theme/tokens';
-import { logoUrl, searchCompanies, type CompanyHint } from '@/lib/companies';
+import { searchCompanies, type CompanyHint } from '@/lib/companies';
+import { CompanyLogo } from '@/components/CompanyLogo';
 
 interface Props {
   value: string;
@@ -46,7 +47,7 @@ export function CompanyAutocomplete({ value, onChangeText, onSelectSuggestion, p
               }}
               style={styles.row}
             >
-              <Image source={{ uri: logoUrl(s.domain, 48) }} style={styles.logo} />
+              <CompanyLogo domain={s.domain} size={28} radius={6} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{s.name}</Text>
                 <Text style={styles.domain}>{s.domain}</Text>
@@ -87,12 +88,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: T.border,
-  },
-  logo: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: T.surface3,
   },
   name: { fontFamily: 'Outfit_600SemiBold', fontSize: 14, color: T.ink },
   domain: { fontFamily: 'DMMono_400Regular', fontSize: 11, color: T.ink3 },

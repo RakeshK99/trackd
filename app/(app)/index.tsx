@@ -15,11 +15,13 @@ import { Lockup } from '@/components/Lockup';
 import { KanbanCard } from '@/components/KanbanCard';
 import { useAuth } from '@/lib/auth';
 import { useApplications } from '@/lib/applications';
+import { useActivity } from '@/lib/activity';
 
 export default function Pipeline() {
   const { user } = useAuth();
   const router = useRouter();
   const { apps, loading } = useApplications();
+  const { unread } = useActivity();
 
   const grouped = useMemo(() => {
     const out: Record<string, typeof apps> = {};
@@ -42,10 +44,20 @@ export default function Pipeline() {
     <SafeAreaView style={{ flex: 1, backgroundColor: T.surface2 }} edges={['top']}>
       <View style={styles.topbar}>
         <Lockup size={26} />
-        <Pressable onPress={() => router.push('/(app)/add')} style={styles.addBtn}>
-          <Ionicons name="add" size={14} color="#fff" />
-          <Text style={styles.addText}>Add job</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Pressable onPress={() => router.push('/(app)/activity')} hitSlop={8} style={{ padding: 4 }}>
+            <Ionicons name="notifications-outline" size={24} color={T.ink} />
+            {unread > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable onPress={() => router.push('/(app)/add')} style={styles.addBtn}>
+            <Ionicons name="add" size={14} color="#fff" />
+            <Text style={styles.addText}>Add job</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.stats}>
@@ -130,6 +142,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   addText: { color: '#fff', fontFamily: 'Outfit_500Medium', fontSize: 13 },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E24B4A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: T.surface2,
+  },
+  badgeText: { color: '#fff', fontFamily: 'Outfit_700Bold', fontSize: 9.5 },
   stats: {
     flexDirection: 'row',
     marginHorizontal: 16,

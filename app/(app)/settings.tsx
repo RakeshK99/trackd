@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
+import { ForwardingGuide } from '@/components/ForwardingGuide';
 import { T } from '@/theme/tokens';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
+  const [showGuide, setShowGuide] = useState(false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.surface2 }} edges={['top']}>
@@ -13,18 +16,22 @@ export default function Settings() {
         <Text style={styles.title}>Settings</Text>
 
         <View style={styles.card}>
-          <Text style={styles.kicker}>YOUR TRACKD EMAIL</Text>
-          <Text style={styles.email}>{user?.trackd_email ?? '—'}</Text>
+          <Text style={styles.kicker}>EMAIL FORWARDING</Text>
+          <Text style={styles.body}>
+            Forward recruiter emails to your Trackd inbox so your pipeline updates automatically.
+          </Text>
           <Pressable
-            onPress={async () => {
-              if (!user?.trackd_email) return;
-              await Clipboard.setStringAsync(user.trackd_email);
-              Alert.alert('Copied', user.trackd_email);
-            }}
-            style={styles.copyBtn}
+            onPress={() => setShowGuide((v) => !v)}
+            style={[styles.copyBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
           >
-            <Text style={styles.copyText}>Copy</Text>
+            <Text style={styles.copyText}>{showGuide ? 'Hide setup' : 'Set up forwarding'}</Text>
+            <Ionicons name={showGuide ? 'chevron-up' : 'chevron-down'} size={14} color={T.greenDark} />
           </Pressable>
+          {showGuide && (
+            <View style={{ marginTop: 6 }}>
+              <ForwardingGuide trackdEmail={user?.trackd_email} />
+            </View>
+          )}
         </View>
 
         <View style={styles.card}>

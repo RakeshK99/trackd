@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Lockup } from '@/components/Lockup';
+import { ForwardingGuide } from '@/components/ForwardingGuide';
 import { T } from '@/theme/tokens';
 
 export default function Onboarding() {
@@ -24,12 +24,6 @@ export default function Onboarding() {
       .then(() => refreshUser());
   }, [user?.id, user?.trackd_email]);
 
-  async function copyEmail() {
-    if (!trackdEmail) return;
-    await Clipboard.setStringAsync(trackdEmail);
-    Alert.alert('Copied', trackdEmail);
-  }
-
   async function finish() {
     if (busy) return;
     setBusy(true);
@@ -45,28 +39,30 @@ export default function Onboarding() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <View style={{ padding: 28 }}>
-        <Lockup size={32} theme="dark" />
-      </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+        <View style={{ padding: 28, paddingBottom: 12 }}>
+          <Lockup size={32} theme="dark" />
+        </View>
 
-      <View style={styles.card}>
-        <Text style={styles.kicker}>YOUR TRACKD INBOX</Text>
-        <Text style={styles.title}>
-          Forward recruiter emails to{'\n'}
-          <Text style={{ color: T.green }}>{trackdEmail ?? '…provisioning…'}</Text>
-        </Text>
-        <Text style={styles.body}>
-          Anything sent here gets parsed by AI and updates your pipeline automatically — no manual entry.
-        </Text>
+        <View style={styles.card}>
+          <Text style={styles.kicker}>YOUR TRACKD INBOX</Text>
+          <Text style={styles.title}>
+            One-time setup,{'\n'}then it runs itself.
+          </Text>
+          <Text style={styles.body}>
+            Set up a single Gmail rule that forwards recruiter emails to your Trackd inbox. After
+            this, your pipeline updates automatically — you never have to enter a status by hand.
+          </Text>
 
-        <Pressable onPress={copyEmail} style={styles.copyBtn} disabled={!trackdEmail}>
-          <Text style={styles.copyText}>Copy email</Text>
-        </Pressable>
+          <ForwardingGuide trackdEmail={trackdEmail} />
+        </View>
 
-        <Pressable onPress={finish} style={[styles.cta, busy && { opacity: 0.6 }]} disabled={busy}>
-          <Text style={styles.ctaText}>Continue</Text>
-        </Pressable>
-      </View>
+        <View style={{ paddingHorizontal: 20 }}>
+          <Pressable onPress={finish} style={[styles.cta, busy && { opacity: 0.6 }]} disabled={busy}>
+            <Text style={styles.ctaText}>{busy ? '…' : "I'll do this later — continue"}</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

@@ -5,6 +5,7 @@ import { T } from '@/theme/tokens';
 import { useAuth } from '@/lib/auth';
 import { registerForPush } from '@/lib/push';
 import { ApplicationsProvider } from '@/lib/applications';
+import { ActivityProvider } from '@/lib/activity';
 
 export default function AppLayout() {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export default function AppLayout() {
 
   return (
     <ApplicationsProvider userId={user?.id}>
+    <ActivityProvider userId={user?.id}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -54,7 +56,9 @@ export default function AppLayout() {
       />
       <Tabs.Screen name="add" options={{ href: null }} />
       <Tabs.Screen name="app/[id]" options={{ href: null }} />
+      <Tabs.Screen name="activity" options={{ href: null }} />
     </Tabs>
+    </ActivityProvider>
     </ApplicationsProvider>
   );
 }

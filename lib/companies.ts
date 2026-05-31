@@ -121,12 +121,15 @@ export const COMPANIES: CompanyHint[] = [
 ];
 
 /**
- * Free, no-key logo URL service.
- * DuckDuckGo's ip3 endpoint returns a reasonable-quality favicon for almost
- * any public company domain. `size` is accepted for API symmetry but DDG
- * serves a single resolution — the consumer sizes via View width/height.
+ * Free, no-key logo URL. Google's favicon service returns up to 128px — much
+ * crisper than DuckDuckGo's 16px .ico. Use `logoFallbackUrl` as onError source.
  */
-export function logoUrl(domain: string, _size = 64) {
+export function logoUrl(domain: string, size = 128) {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
+}
+
+/** Lower-res but very reliable fallback if Google has no icon for a domain. */
+export function logoFallbackUrl(domain: string) {
   return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }
 

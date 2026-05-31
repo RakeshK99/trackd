@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -22,7 +21,8 @@ import {
   useApplications,
 } from '@/lib/applications';
 import { StatusBadge } from '@/components/StatusBadge';
-import { logoUrl, searchCompanies } from '@/lib/companies';
+import { searchCompanies } from '@/lib/companies';
+import { CompanyLogo } from '@/components/CompanyLogo';
 import type { Application, TimelineEvent } from '@/lib/types';
 
 function fmtDB(d: Date) {
@@ -128,12 +128,7 @@ export default function AppDetail() {
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 60 }}>
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          {logoMatch && (
-            <Image
-              source={{ uri: logoUrl(logoMatch.domain, 96) }}
-              style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: T.surface3 }}
-            />
-          )}
+          <CompanyLogo domain={logoMatch?.domain} size={56} radius={12} />
           <View style={{ flex: 1 }}>
             <TextInput
               value={company}
