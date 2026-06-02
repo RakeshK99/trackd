@@ -100,7 +100,14 @@ export default function AddJob() {
 
           <View>
             <Text style={styles.kicker}>APPLIED DATE (OPTIONAL)</Text>
-            <Pressable onPress={() => setShowPicker((v) => !v)} style={styles.input}>
+            <Pressable
+              onPress={() => {
+                // Default to today so "Done" on the initial highlight works.
+                if (!appliedDate) setAppliedDate(new Date());
+                setShowPicker((v) => !v);
+              }}
+              style={styles.input}
+            >
               <Text
                 style={{
                   fontFamily: 'Outfit_400Regular',

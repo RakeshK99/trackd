@@ -35,7 +35,7 @@ function displayDate(s: string) {
 export default function AppDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { upsertLocal } = useApplications();
+  const { upsertLocal, removeLocal } = useApplications();
 
   const [app, setApp] = useState<Application | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
@@ -96,8 +96,9 @@ export default function AppDetail() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await deleteApplication(app.id);
+            removeLocal(app.id); // optimistic — don't wait for realtime DELETE
             router.back();
+            await deleteApplication(app.id);
           },
         },
       ],
@@ -198,7 +199,13 @@ export default function AppDetail() {
           </Row>
 
           <Row label="Applied">
-            <Pressable onPress={() => setShowPicker((v) => !v)} style={{ flex: 1 }}>
+            <Pressable
+              onPress={() => {
+                if (!app.applied_date) patch({ applied_date: fmtDB(new Date()) });
+                setShowPicker((v) => !v);
+              }}
+              style={{ flex: 1 }}
+            >
               <Text style={styles.fieldText}>
                 {app.applied_date ? displayDate(app.applied_date) : 'Pick a date'}
               </Text>

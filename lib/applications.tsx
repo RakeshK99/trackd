@@ -18,6 +18,8 @@ interface Ctx {
   loading: boolean;
   /** Merge a row into local state without a refetch (optimistic / post-insert). */
   upsertLocal: (row: Application) => void;
+  /** Remove a row from local state immediately (optimistic delete). */
+  removeLocal: (id: string) => void;
 }
 
 const ApplicationsCtx = createContext<Ctx | undefined>(undefined);
@@ -92,6 +94,12 @@ export function ApplicationsProvider({
       apps,
       loading,
       upsertLocal: (row) => setById((prev) => ({ ...prev, [row.id]: row })),
+      removeLocal: (id) =>
+        setById((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        }),
     }),
     [apps, loading],
   );

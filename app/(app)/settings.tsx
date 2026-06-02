@@ -3,11 +3,12 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { ForwardingGuide } from '@/components/ForwardingGuide';
 import { T } from '@/theme/tokens';
 
 export default function Settings() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const [showGuide, setShowGuide] = useState(false);
 
   return (
@@ -52,6 +53,21 @@ export default function Settings() {
               <Text style={[styles.copyText, { color: '#fff' }]}>Upgrade to Pro</Text>
             </Pressable>
           )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.kicker}>DOT</Text>
+          <Pressable
+            onPress={async () => {
+              if (!user?.id) return;
+              await supabase.from('users').update({ onboarded: false }).eq('id', user.id);
+              await refreshUser();
+            }}
+            style={[styles.copyBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+          >
+            <Ionicons name="sparkles-outline" size={14} color={T.greenDark} />
+            <Text style={styles.copyText}>Replay the intro with Dot</Text>
+          </Pressable>
         </View>
 
         <View style={styles.card}>
