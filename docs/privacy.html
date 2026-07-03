@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trackd — Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+    line-height: 1.6;
+    color: #1A1A18;
+    background: #FBFEFC;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #EDEDE8; background: #0D1117; }
+    a { color: #5DCAA5; }
+    .card { background: #161B22 !important; border-color: rgba(255,255,255,0.08) !important; }
+  }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  .updated { color: #888780; font-size: 13px; margin-bottom: 32px; }
+  h2 { font-size: 18px; margin-top: 36px; }
+  p, li { font-size: 15px; }
+  ul { padding-left: 20px; }
+  a { color: #0F6E56; }
+  .card {
+    background: #F0FAF6;
+    border: 1px solid rgba(29,158,117,0.2);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 24px 0;
+    font-size: 14px;
+  }
+  code { font-size: 13px; background: rgba(127,127,127,0.15); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>Trackd Privacy Policy</h1>
+  <p class="updated">Last updated: July 3, 2026</p>
+
+  <p>
+    Trackd ("Trackd", "we", "us") is a job-application tracker for iOS, Android, and web.
+    This policy explains what information we collect, why we collect it, and how it's used.
+  </p>
+
+  <div class="card">
+    <strong>In short:</strong> we store the job-application data you enter, and — if you choose
+    to forward recruiter emails to your personal Trackd inbox — the content of those emails, so
+    we can automatically move your applications through your pipeline. We do not sell your data.
+  </div>
+
+  <h2>Information we collect</h2>
+  <ul>
+    <li><strong>Account information</strong> — name, email address, and authentication credentials, provided when you sign up.</li>
+    <li><strong>Application data</strong> — company names, roles, statuses, salary ranges, notes, and dates you enter into your pipeline.</li>
+    <li><strong>Forwarded email content</strong> — if you forward or set up filters to send recruiter emails to your personal <code>@agentmail.to</code> (or custom domain) Trackd inbox, we receive and store the sender address, subject line, and a preview of the body so it can be classified and matched to an application.</li>
+    <li><strong>Push notification tokens</strong> — a device-specific token used to deliver notifications (e.g., "Stripe moved to Interview").</li>
+    <li><strong>Usage &amp; device information</strong> — basic technical data (platform, app version) needed to operate and debug the service.</li>
+  </ul>
+
+  <h2>How we use your information</h2>
+  <ul>
+    <li>To operate your application pipeline, kanban board, and analytics.</li>
+    <li>To classify forwarded recruiter emails using an AI model (Anthropic's Claude) and automatically update the matching application's status.</li>
+    <li>To send you push notifications about status changes, interviews, offers, and "ghosted" applications.</li>
+    <li>To enforce plan limits (e.g., the free-tier active-application cap) and prevent abuse.</li>
+    <li>To maintain and improve the reliability and security of the service.</li>
+  </ul>
+
+  <h2>Third parties we share data with</h2>
+  <p>We use the following service providers ("subprocessors") to operate Trackd. Each only receives the data necessary to perform its function:</p>
+  <ul>
+    <li><strong>Supabase</strong> — database, authentication, and backend hosting.</li>
+    <li><strong>AgentMail</strong> — provisions and receives mail for your personal Trackd inbox.</li>
+    <li><strong>Anthropic (Claude)</strong> — classifies forwarded email content (sender, subject, body preview) to detect status changes. Email content sent for classification is not used by Anthropic to train models under their API terms.</li>
+    <li><strong>Expo</strong> — delivers push notifications to your device.</li>
+  </ul>
+  <p>We do not sell your personal information to third parties.</p>
+
+  <h2>Data retention &amp; deletion</h2>
+  <p>
+    We retain your account and application data for as long as your account is active. You can
+    delete individual applications at any time in the app. To delete your account and all
+    associated data, contact us at the email below — we will process deletion requests within
+    30 days.
+  </p>
+
+  <h2>Security</h2>
+  <p>
+    Application data is protected with row-level security so that only you can read or write
+    your own records. Data is encrypted in transit. Webhook requests from our email provider are
+    cryptographically signature-verified before processing.
+  </p>
+
+  <h2>Children's privacy</h2>
+  <p>Trackd is not directed at children under 13, and we do not knowingly collect data from them.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>We may update this policy from time to time. Material changes will be reflected by updating the "Last updated" date above.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy or your data? Email <a href="mailto:rakesh.vkottapalli@gmail.com">rakesh.vkottapalli@gmail.com</a>.</p>
+</body>
+</html>

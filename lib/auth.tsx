@@ -31,8 +31,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
-      if (sess) loadUser(sess.user.id);
-      else setUser(null);
+      if (sess) {
+        // Keep AuthGate on its loading spinner until the user row (and its
+        // `onboarded` flag) is fetched — otherwise it redirects a returning,
+        // already-onboarded user to onboarding using the stale `user` value
+        // from before sign-in, then bounces back once loadUser resolves.
+        setLoading(true);
+        loadUser(sess.user.id).finally(() => setLoading(false));
+      } else {
+        setUser(null);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);

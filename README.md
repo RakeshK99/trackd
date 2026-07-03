@@ -53,7 +53,8 @@ npx expo start
      AGENTMAIL_WEBHOOK_SECRET=... \
      AGENTMAIL_DOMAIN=trackd.app \
      ANTHROPIC_API_KEY=sk-ant-... \
-     EXPO_ACCESS_TOKEN=...
+     EXPO_ACCESS_TOKEN=... \
+     GHOST_DETECTOR_SECRET=$(openssl rand -hex 32)
    ```
 4. Deploy functions:
    ```bash
@@ -61,7 +62,10 @@ npx expo start
    npx supabase functions deploy process-email --no-verify-jwt
    npx supabase functions deploy ghost-detector --no-verify-jwt
    ```
-5. Schedule the ghost detector — in Supabase Studio → Edge Functions → Cron, daily at 09:00 UTC, hit `ghost-detector`.
+5. Schedule the ghost detector — in Supabase Studio → Edge Functions → Cron, daily at 09:00 UTC, hit
+   `ghost-detector` with header `Authorization: Bearer <GHOST_DETECTOR_SECRET>` (the function is
+   deployed with `--no-verify-jwt` since the caller is a scheduler, not a logged-in user, so it
+   authenticates itself via this shared secret instead — a request without it gets a 401).
 
 ## AgentMail
 

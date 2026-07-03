@@ -26,19 +26,15 @@ export default function SignInScreen() {
     setBusy(true);
     try {
       if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { display_name: name } },
         });
         if (error) throw error;
-        // Best-effort: provision AgentMail inbox. Failure is non-fatal — user
-        // can retry from onboarding screen.
-        if (data.user) {
-          supabase.functions.invoke('on-user-signup', {
-            body: { user_id: data.user.id, email, display_name: name },
-          }).catch(() => undefined);
-        }
+        // AgentMail inbox provisioning happens once, on the onboarding screen
+        // (app/(auth)/onboarding.tsx) — the single documented call site for
+        // on-user-signup. Don't duplicate the call here.
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;

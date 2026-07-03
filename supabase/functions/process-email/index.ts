@@ -11,7 +11,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.32.1';
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
 import { sendPushToUser } from '../_shared/push.ts';
-import { Webhook } from 'npm:svix@1.29.0';
+import { verifySvix } from '../_shared/svix.ts';
 
 const claude = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! });
 
@@ -46,10 +46,20 @@ function pick<T = unknown>(obj: Record<string, unknown> | undefined, ...keys: st
   return undefined;
 }
 
+// AgentMail's message.received payload sends `from` as "Display Name <email@domain.com>".
+function extractEmailAddress(s: string): string {
+  const m = s.match(/<([^<>]+)>/);
+  return (m ? m[1] : s).trim();
+}
+
 function firstEmail(v: unknown): string {
   if (!v) return '';
-  if (Array.isArray(v)) return String(v[0] ?? '');
-  return String(v);
+  if (Array.isArray(v)) return firstEmail(v[0]);
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    return firstEmail(o.email ?? o.address ?? o.value ?? '');
+  }
+  return extractEmailAddress(String(v));
 }
 
 async function classify(subject: string, from: string, body: string): Promise<Classification> {
@@ -80,24 +90,14 @@ Deno.serve(async (req) => {
   console.log('headers:', JSON.stringify(headers));
   console.log('rawBody:', rawBody.slice(0, 2000));
 
-  // --- Signature verification (bypassable while debugging wiring) ---
-  const bypass = Deno.env.get('WEBHOOK_DEBUG_BYPASS_SIGNATURE') === 'true';
-  const secret = Deno.env.get('AGENTMAIL_WEBHOOK_SECRET');
-  if (!bypass && secret) {
-    try {
-      const wh = new Webhook(secret);
-      wh.verify(rawBody, {
-        'svix-id': req.headers.get('svix-id') ?? req.headers.get('webhook-id') ?? '',
-        'svix-timestamp': req.headers.get('svix-timestamp') ?? req.headers.get('webhook-timestamp') ?? '',
-        'svix-signature': req.headers.get('svix-signature') ?? req.headers.get('webhook-signature') ?? '',
-      });
-      console.log('svix signature: OK');
-    } catch (err) {
-      console.error('svix signature FAILED:', String(err));
-      return new Response('invalid signature', { status: 401 });
-    }
-  } else {
-    console.log('svix verification skipped (bypass=%s, secretPresent=%s)', bypass, !!secret);
+  // --- Signature verification. Fails closed: missing/misconfigured secret
+  // rejects the request rather than silently skipping verification. ---
+  try {
+    await verifySvix(rawBody, req.headers);
+    console.log('svix signature: OK (or bypass explicitly enabled)');
+  } catch (err) {
+    console.error('svix signature FAILED:', String(err));
+    return new Response('invalid signature', { status: 401 });
   }
 
   let payload: Record<string, unknown>;
@@ -108,11 +108,15 @@ Deno.serve(async (req) => {
     return new Response('ok');
   }
 
-  // --- Resolve event type across possible field names ---
+  // AgentMail's payload shape (confirmed): { type: "event", event_type: "message.received", ... }.
+  // Only "message.received" is expected — the account-level webhook is subscribed to that
+  // event type alone, so anything else (message.sent/.bounced/.received.spam etc., which
+  // require explicit opt-in) indicates misconfiguration and should be dropped, not processed
+  // as a new inbound recruiter email.
   const eventType = pick<string>(payload, 'event_type', 'type', 'event');
   console.log('eventType:', eventType);
-  if (eventType && !String(eventType).includes('message') && !String(eventType).includes('received')) {
-    console.log('ignoring non-message event');
+  if (eventType && String(eventType).toLowerCase() !== 'message.received') {
+    console.log('ignoring non-message.received event:', eventType);
     return new Response('ok');
   }
 
@@ -140,17 +144,6 @@ Deno.serve(async (req) => {
     return new Response('ok');
   }
 
-  // Idempotency
-  const { data: exists } = await supabaseAdmin
-    .from('email_events')
-    .select('id')
-    .eq('agentmail_message_id', messageId)
-    .maybeSingle();
-  if (exists) {
-    console.log('already processed', messageId);
-    return new Response('ok');
-  }
-
   // Resolve user from inbox_id
   const { data: user } = await supabaseAdmin
     .from('users')
@@ -159,6 +152,23 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (!user) {
     console.error('no user for inbox_id', inboxId);
+    return new Response('ok');
+  }
+
+  // Idempotency: claim this message atomically via the unique constraint on
+  // agentmail_message_id. A concurrent/retried delivery for the same message
+  // will fail this insert with a unique violation instead of racing past a
+  // separate select-then-check (which two concurrent requests could both pass).
+  const { error: claimErr } = await supabaseAdmin.from('email_events').insert({
+    agentmail_message_id: messageId,
+    user_id: user.id,
+  });
+  if (claimErr) {
+    if (claimErr.code === '23505') {
+      console.log('already processed (claim lost)', messageId);
+      return new Response('ok');
+    }
+    console.error('email_events claim insert error:', claimErr.message);
     return new Response('ok');
   }
 
@@ -198,15 +208,23 @@ Deno.serve(async (req) => {
       .update({ status: mappedStatus, last_activity: new Date().toISOString() })
       .eq('id', appId);
 
-    await supabaseAdmin.from('timeline_events').insert({
-      application_id: appId,
-      user_id: user.id,
-      event_type: 'email_received',
-      old_status: prevStatus,
-      new_status: mappedStatus,
-      email_subject: subject,
-      email_from: fromAddr,
-    });
+    // The update above already fired trg_log_status_change, which inserted a
+    // 'status_change' timeline_events row. Enrich that same row with the
+    // email context instead of inserting a second row for one transition.
+    const { data: trigRow } = await supabaseAdmin
+      .from('timeline_events')
+      .select('id')
+      .eq('application_id', appId)
+      .eq('event_type', 'status_change')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (trigRow) {
+      await supabaseAdmin
+        .from('timeline_events')
+        .update({ event_type: 'email_received', email_subject: subject, email_from: fromAddr })
+        .eq('id', trigRow.id);
+    }
 
     await sendPushToUser(
       user.id,
@@ -219,19 +237,20 @@ Deno.serve(async (req) => {
     console.log('no status update applied (appId=%s, mappedStatus=%s)', appId, mappedStatus);
   }
 
-  // Always record the raw email event for audit / unmatched review.
-  const { error: insErr } = await supabaseAdmin.from('email_events').insert({
-    agentmail_message_id: messageId,
-    user_id: user.id,
-    application_id: appId,
-    from_address: fromAddr,
-    subject,
-    body_preview: body.slice(0, 500),
-    classified_status: mappedStatus ?? null,
-    classified_company: classification.company,
-    confidence: classification.confidence,
-  });
-  if (insErr) console.error('email_events insert error:', insErr.message);
+  // Fill in the audit row claimed earlier with the classification results.
+  const { error: updErr } = await supabaseAdmin
+    .from('email_events')
+    .update({
+      application_id: appId,
+      from_address: fromAddr,
+      subject,
+      body_preview: body.slice(0, 500),
+      classified_status: mappedStatus ?? null,
+      classified_company: classification.company,
+      confidence: classification.confidence,
+    })
+    .eq('agentmail_message_id', messageId);
+  if (updErr) console.error('email_events update error:', updErr.message);
 
   console.log('=== process-email done ===');
   return new Response('ok');

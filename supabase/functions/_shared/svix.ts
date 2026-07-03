@@ -1,16 +1,19 @@
 // Verify Svix-signed webhook (AgentMail uses Svix).
-// Returns parsed JSON payload or throws on signature failure.
+// Fails closed: throws (caller must reject the request) unless the debug
+// bypass flag is explicitly set. A missing/misconfigured secret must never
+// silently skip verification, or the endpoint becomes unauthenticated.
 import { Webhook } from 'npm:svix@1.29.0';
 
-export async function verifySvix(req: Request, secretEnv = 'AGENTMAIL_WEBHOOK_SECRET'): Promise<any> {
+export async function verifySvix(rawBody: string, headers: Headers, secretEnv = 'AGENTMAIL_WEBHOOK_SECRET') {
+  if (Deno.env.get('WEBHOOK_DEBUG_BYPASS_SIGNATURE') === 'true') return;
+
   const secret = Deno.env.get(secretEnv);
   if (!secret) throw new Error(`${secretEnv} not configured`);
-  const body = await req.text();
-  const headers = {
-    'svix-id': req.headers.get('svix-id') ?? '',
-    'svix-timestamp': req.headers.get('svix-timestamp') ?? '',
-    'svix-signature': req.headers.get('svix-signature') ?? '',
-  };
+
   const wh = new Webhook(secret);
-  return wh.verify(body, headers);
+  wh.verify(rawBody, {
+    'svix-id': headers.get('svix-id') ?? headers.get('webhook-id') ?? '',
+    'svix-timestamp': headers.get('svix-timestamp') ?? headers.get('webhook-timestamp') ?? '',
+    'svix-signature': headers.get('svix-signature') ?? headers.get('webhook-signature') ?? '',
+  });
 }

@@ -1,9 +1,20 @@
 // Nightly cron — flag applications silent for 14+ days as ghosted.
-// Schedule via Supabase: pg_cron OR the dashboard scheduler hitting this URL.
+// Schedule via Supabase: pg_cron OR the dashboard scheduler hitting this URL,
+// sending `Authorization: Bearer <GHOST_DETECTOR_SECRET>`.
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
 import { sendBatch } from '../_shared/push.ts';
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  // Deployed with --no-verify-jwt (the caller is a scheduler, not a logged-in
+  // user), so this function must authenticate itself. Fails closed: an unset
+  // secret means every request is rejected until one is configured.
+  const secret = Deno.env.get('GHOST_DETECTOR_SECRET');
+  if (req.headers.get('authorization') !== `Bearer ${secret}`) {
+    return new Response('unauthorized', { status: 401 });
+  }
+
+  const startedAt = new Date().toISOString();
+
   const { data: stale, error } = await supabaseAdmin
     .from('applications')
     .select('id, user_id, company, role, status')
@@ -17,15 +28,22 @@ Deno.serve(async () => {
   const ids = stale.map((a) => a.id);
   await supabaseAdmin.from('applications').update({ status: 'ghosted' }).in('id', ids);
 
-  await supabaseAdmin.from('timeline_events').insert(
-    stale.map((a) => ({
-      application_id: a.id,
-      user_id: a.user_id,
-      event_type: 'ghost_flagged',
-      old_status: a.status,
-      new_status: 'ghosted',
-    })),
-  );
+  // The update above already fired trg_log_status_change, inserting a
+  // 'status_change' row per application. Relabel those rows instead of
+  // inserting a second 'ghost_flagged' row for the same transition.
+  const { data: trigRows } = await supabaseAdmin
+    .from('timeline_events')
+    .select('id')
+    .in('application_id', ids)
+    .eq('event_type', 'status_change')
+    .eq('new_status', 'ghosted')
+    .gte('created_at', startedAt);
+  if (trigRows?.length) {
+    await supabaseAdmin
+      .from('timeline_events')
+      .update({ event_type: 'ghost_flagged' })
+      .in('id', trigRows.map((r) => r.id));
+  }
 
   // Batch push by user
   const byUser: Record<string, typeof stale> = {};

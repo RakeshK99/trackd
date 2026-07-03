@@ -30,9 +30,11 @@ export async function sendPushToUser(userId: string, title: string, body: string
 export async function sendBatch(messages: ExpoMessage[]) {
   const chunks: ExpoMessage[][] = [];
   for (let i = 0; i < messages.length; i += 100) chunks.push(messages.slice(i, i + 100));
+
+  const staleTokens: string[] = [];
   await Promise.all(
-    chunks.map((chunk) =>
-      fetch('https://exp.host/--/api/v2/push/send', {
+    chunks.map(async (chunk) => {
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -43,7 +45,22 @@ export async function sendBatch(messages: ExpoMessage[]) {
             : {}),
         },
         body: JSON.stringify(chunk),
-      }),
-    ),
+      });
+      if (!res.ok) {
+        console.error('expo push send failed:', res.status, await res.text());
+        return;
+      }
+      const json = await res.json().catch(() => null);
+      const tickets = json?.data as Array<{ status: string; details?: { error?: string } }> | undefined;
+      tickets?.forEach((ticket, i) => {
+        if (ticket.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
+          staleTokens.push(chunk[i].to);
+        }
+      });
+    }),
   );
+
+  if (staleTokens.length) {
+    await supabaseAdmin.from('push_tokens').delete().in('token', staleTokens);
+  }
 }

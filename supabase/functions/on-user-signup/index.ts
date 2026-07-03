@@ -68,13 +68,17 @@ Deno.serve(async (req) => {
     body: JSON.stringify({ client_id: userId }),
   });
 
-  // 2. Inbox on configured domain.
+  // 2. Inbox on configured domain. client_id makes this idempotent — if this
+  // function is invoked twice concurrently for the same user (e.g. the
+  // post-signup call and the onboarding-screen mount effect both firing),
+  // AgentMail returns the same inbox instead of provisioning two.
   const inbox = await am(`/pods/${pod.pod_id}/inboxes`, {
     method: 'POST',
     body: JSON.stringify({
       username,
       domain: DOMAIN,
       display_name: displayName ?? username,
+      client_id: userId,
     }),
   });
 
