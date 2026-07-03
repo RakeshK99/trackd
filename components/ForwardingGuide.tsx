@@ -1,7 +1,8 @@
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { T } from '@/theme/tokens';
+import { openExternalUrl } from '@/lib/linking';
 
 const STEPS = [
   'Open Gmail settings → Filters (button below).',
@@ -43,14 +44,14 @@ export function ForwardingGuide({ trackdEmail }: { trackdEmail: string | null | 
 
       <View style={{ gap: 8 }}>
         <Pressable
-          onPress={() => Linking.openURL('https://mail.google.com/mail/u/0/#settings/filters')}
+          onPress={() => openExternalUrl('https://mail.google.com/mail/u/0/#settings/filters', 'Gmail filters')}
           style={styles.primaryBtn}
         >
           <Ionicons name="mail-outline" size={16} color="#fff" />
           <Text style={styles.primaryText}>Open Gmail filters</Text>
         </Pressable>
         <Pressable
-          onPress={() => Linking.openURL('https://outlook.live.com/mail/0/options/mail/rules')}
+          onPress={() => openExternalUrl('https://outlook.live.com/mail/0/options/mail/rules', 'Outlook rules')}
           style={styles.secondaryBtn}
         >
           <Text style={styles.secondaryText}>Using Outlook instead?</Text>

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated as RNAnimated,
-  Linking,
   Pressable,
   StyleSheet,
   Switch,
@@ -17,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { registerForPush } from '@/lib/push';
+import { openExternalUrl } from '@/lib/linking';
 import { Dot, type DotMood } from '@/components/Dot';
 import { STATUS, T } from '@/theme/tokens';
 
@@ -188,7 +188,7 @@ export default function Onboarding() {
                       </Pressable>
                     </View>
                     <Pressable
-                      onPress={() => Linking.openURL('https://mail.google.com/mail/u/0/#settings/filters')}
+                      onPress={() => openExternalUrl('https://mail.google.com/mail/u/0/#settings/filters', 'Gmail filters')}
                       style={styles.gmailBtn}
                     >
                       <Ionicons name="mail-outline" size={15} color={T.greenDark} />
