@@ -35,16 +35,19 @@ function svg({ bg, scale, dx = 0, dy = 0 }) {
   </svg>`;
 }
 
-async function render(name, source, size) {
-  await sharp(Buffer.from(source))
-    .resize(size, size)
-    .png()
-    .toFile(join(assets, name));
+async function render(name, source, size, { opaque = false } = {}) {
+  let img = sharp(Buffer.from(source)).resize(size, size);
+  // Apple rejects the App Store icon if it has an alpha channel, even a fully
+  // opaque one — sharp's PNG output is RGBA by default, so fully-opaque icons
+  // must be explicitly flattened. Only for icons with a real solid
+  // background; adaptive-icon/splash need genuine transparency and must keep it.
+  if (opaque) img = img.flatten({ background: GREEN_BG });
+  await img.png().toFile(join(assets, name));
   console.log('wrote', name, `${size}x${size}`);
 }
 
-// iOS / store icon: full-bleed green background, mark centered.
-await render('icon.png', svg({ bg: GREEN_BG, scale: 1 }), 1024);
+// iOS / store icon: full-bleed green background, mark centered. Must be opaque.
+await render('icon.png', svg({ bg: GREEN_BG, scale: 1 }), 1024, { opaque: true });
 
 // Android adaptive foreground: transparent, mark in central safe zone (~62%).
 await render('adaptive-icon.png', svg({ bg: null, scale: 0.62 }), 1024);
@@ -53,6 +56,6 @@ await render('adaptive-icon.png', svg({ bg: null, scale: 0.62 }), 1024);
 await render('splash.png', svg({ bg: null, scale: 0.7 }), 1024);
 
 // Web favicon.
-await render('favicon.png', svg({ bg: GREEN_BG, scale: 1 }), 48);
+await render('favicon.png', svg({ bg: GREEN_BG, scale: 1 }), 48, { opaque: true });
 
 console.log('done');
