@@ -112,13 +112,17 @@ context; don't create a new subscription.
   wiring, which should be unset again once wiring is confirmed) → parse the confirmed AgentMail
   payload shape (`{ event_type, message: { inbox_id, message_id, from, subject, text, ... } }`,
   field resolution stays defensive/multi-key as a safety net) → classify with Claude
-  (`claude-sonnet-4-5`) → resolve user via `inbox_id` → fuzzy-match application via
-  `match_application` RPC (only applied when `confidence >= 0.6`) → update status + enrich the
-  `timeline_events` row that `log_status_change()` already auto-inserted (rather than inserting a
-  second row) + push notification → the `email_events` row for this `agentmail_message_id` is
-  inserted *before* processing (as an atomic dedup claim — a unique-constraint conflict means a
-  retry/redelivery, so the handler bails immediately) and updated with classification results at
-  the end.
+  (`claude-sonnet-4-5`, which also extracts a `role` guess) → resolve user via `inbox_id` →
+  fuzzy-match application via `match_application` RPC (only applied when `confidence >= 0.6`) →
+  on a match, update status + enrich the `timeline_events` row that `log_status_change()` already
+  auto-inserted (rather than inserting a second row) + push notification. On *no* match, if the
+  classified status is `applied` (an automated "we received your application" confirmation, not
+  just any update) at `confidence >= 0.6`, auto-creates the application instead of dropping the
+  email — this is how applying somewhere outside Trackd (LinkedIn, a careers page, etc.) still
+  ends up tracked, since there's no existing row to match against. The `email_events` row for this
+  `agentmail_message_id` is inserted *before* processing (as an atomic dedup claim — a
+  unique-constraint conflict means a retry/redelivery, so the handler bails immediately) and
+  updated with classification results at the end.
   There is a single account-level AgentMail webhook shared across all users/inboxes (not
   one-per-inbox) — simpler signature verification with one shared secret; the function resolves
   the owning user from `inbox_id` in the payload.

@@ -6,7 +6,10 @@
 //   2. Verifies the Svix signature when possible (bypassable via env flag
 //      WEBHOOK_DEBUG_BYPASS_SIGNATURE=true while we confirm wiring)
 //   3. Parses event type + message across multiple possible field names
-//   4. Classifies with Claude, fuzzy-matches, updates, and ALWAYS records an
+//   4. Classifies with Claude, fuzzy-matches against existing applications,
+//      updates status on a match — or, for a fresh "application received"
+//      confirmation with no match, creates the application (so applying
+//      somewhere outside Trackd still gets tracked) — and ALWAYS records an
 //      email_event row (even when unmatched) so nothing is silently dropped
 import Anthropic from 'npm:@anthropic-ai/sdk@0.32.1';
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
@@ -27,6 +30,7 @@ const STATUS_MAP: Record<string, string> = {
 
 interface Classification {
   company: string | null;
+  role: string | null;
   status:
     | 'phone_screen'
     | 'interview_scheduled'
@@ -73,7 +77,9 @@ async function classify(subject: string, from: string, body: string): Promise<Cl
         role: 'user',
         content:
           `Subject: ${subject}\nFrom: ${from}\nBody: ${body.slice(0, 800)}\n\n` +
-          `Return this exact schema: {"company": string|null, "status": "phone_screen"|"interview_scheduled"|"offer"|"rejected"|"waitlisted"|"applied"|"unknown", "confidence": number}`,
+          `Return this exact schema: {"company": string|null, "role": string|null, "status": "phone_screen"|"interview_scheduled"|"offer"|"rejected"|"waitlisted"|"applied"|"unknown", "confidence": number}\n` +
+          `"role" is the job title/position mentioned (e.g. "Software Engineer Intern"), or null if not stated. ` +
+          `Use status "applied" for an automated "we received your application" / "thanks for applying" confirmation, not just any update.`,
       },
     ],
   });
@@ -179,7 +185,7 @@ Deno.serve(async (req) => {
     console.log('classification:', JSON.stringify(classification));
   } catch (err) {
     console.error('claude classify failed:', String(err));
-    classification = { company: null, status: 'unknown', confidence: 0 };
+    classification = { company: null, role: null, status: 'unknown', confidence: 0 };
   }
 
   // Fuzzy-match application
@@ -233,6 +239,53 @@ Deno.serve(async (req) => {
       { application_id: appId },
     );
     console.log('updated application', appId, '->', mappedStatus);
+  } else if (
+    !appId &&
+    classification.status === 'applied' &&
+    classification.confidence >= 0.6 &&
+    classification.company
+  ) {
+    // No existing application matched, but this reads as a fresh
+    // "application received" confirmation — the company/role likely was
+    // never added to Trackd manually (applied via LinkedIn, a careers
+    // page, etc.), so create it instead of silently dropping the email.
+    const { data: created, error: createErr } = await supabaseAdmin
+      .from('applications')
+      .insert({
+        user_id: user.id,
+        company: classification.company,
+        role: classification.role?.trim() || 'Role not specified',
+        status: 'applied',
+      })
+      .select()
+      .single();
+
+    if (createErr) {
+      // Most likely FREE_TIER_LIMIT from enforce_active_app_limit() — don't
+      // fail the webhook over it, just skip creating.
+      console.error('auto-create application failed:', createErr.message);
+    } else if (created) {
+      appId = created.id;
+      console.log('auto-created application', appId, 'for company', classification.company);
+
+      // INSERT doesn't fire trg_log_status_change (update-only), so log the
+      // creation explicitly rather than relying on the trigger.
+      await supabaseAdmin.from('timeline_events').insert({
+        application_id: appId,
+        user_id: user.id,
+        event_type: 'created',
+        new_status: 'applied',
+        email_subject: subject,
+        email_from: fromAddr,
+      });
+
+      await sendPushToUser(
+        user.id,
+        'Trackd',
+        `${classification.company} added to your pipeline`,
+        { application_id: appId },
+      );
+    }
   } else {
     console.log('no status update applied (appId=%s, mappedStatus=%s)', appId, mappedStatus);
   }
