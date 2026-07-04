@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { registerForPush } from '@/lib/push';
-import { openGmail } from '@/lib/linking';
+import { openExternalUrl, openGmail } from '@/lib/linking';
 import { Dot, type DotMood } from '@/components/Dot';
 import { STATUS, T } from '@/theme/tokens';
 
@@ -191,6 +191,12 @@ export default function Onboarding() {
                       <Ionicons name="mail-outline" size={15} color={T.greenDark} />
                       <Text style={styles.gmailBtnText}>Set up Gmail forwarding</Text>
                     </Pressable>
+                    <Pressable
+                      onPress={() => openExternalUrl('https://support.google.com/mail/answer/6579', "Google's filter guide")}
+                      style={{ alignItems: 'center', paddingTop: 8 }}
+                    >
+                      <Text style={styles.helpLink}>Need help? See Google's step-by-step guide</Text>
+                    </Pressable>
                   </View>
                 )}
 
@@ -301,6 +307,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   gmailBtnText: { fontFamily: 'Outfit_600SemiBold', fontSize: 13.5, color: T.greenDark },
+  helpLink: { fontFamily: 'Outfit_500Medium', fontSize: 12, color: T.ink2, textDecorationLine: 'underline' },
   miniPipeline: { flexDirection: 'row', gap: 10, marginTop: 22 },
   miniCol: {
     flex: 1,

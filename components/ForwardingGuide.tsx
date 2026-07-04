@@ -51,6 +51,13 @@ export function ForwardingGuide({ trackdEmail }: { trackdEmail: string | null | 
           <Text style={styles.primaryText}>Open Gmail</Text>
         </Pressable>
         <Pressable
+          onPress={() => openExternalUrl('https://support.google.com/mail/answer/6579', "Google's filter guide")}
+          style={styles.helpBtn}
+        >
+          <Ionicons name="play-circle-outline" size={16} color={T.greenDark} />
+          <Text style={styles.helpBtnText}>See Google's step-by-step guide (with screenshots)</Text>
+        </Pressable>
+        <Pressable
           onPress={() => openExternalUrl('https://outlook.live.com/mail/0/options/mail/rules', 'Outlook rules')}
           style={styles.secondaryBtn}
         >
@@ -97,6 +104,18 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   primaryText: { color: '#fff', fontFamily: 'Outfit_600SemiBold', fontSize: 14 },
+  helpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 11,
+    borderRadius: 999,
+    backgroundColor: T.greenSubtle,
+    borderWidth: 0.5,
+    borderColor: 'rgba(29,158,117,0.28)',
+  },
+  helpBtnText: { color: T.greenDark, fontFamily: 'Outfit_600SemiBold', fontSize: 13 },
   secondaryBtn: { alignItems: 'center', paddingVertical: 8 },
   secondaryText: { color: T.ink2, fontFamily: 'Outfit_500Medium', fontSize: 13 },
 });
