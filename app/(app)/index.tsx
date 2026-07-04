@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,18 +10,29 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { STATUS, STATUS_ORDER, T } from '@/theme/tokens';
+import { STATUS, STATUS_ORDER, T, type AppStatus } from '@/theme/tokens';
 import { Lockup } from '@/components/Lockup';
 import { KanbanCard } from '@/components/KanbanCard';
+import { StatusPickerSheet } from '@/components/StatusPickerSheet';
 import { useAuth } from '@/lib/auth';
-import { useApplications } from '@/lib/applications';
+import { updateApplication, useApplications } from '@/lib/applications';
 import { useActivity } from '@/lib/activity';
+import type { Application } from '@/lib/types';
 
 export default function Pipeline() {
   const { user } = useAuth();
   const router = useRouter();
-  const { apps, loading } = useApplications();
+  const { apps, loading, upsertLocal } = useApplications();
   const { unread } = useActivity();
+  const [movingApp, setMovingApp] = useState<Application | null>(null);
+
+  async function move(status: AppStatus) {
+    if (!movingApp) return;
+    const id = movingApp.id;
+    setMovingApp(null);
+    const { data } = await updateApplication(id, { status });
+    if (data) upsertLocal(data);
+  }
 
   const grouped = useMemo(() => {
     const out: Record<string, typeof apps> = {};
@@ -112,7 +123,12 @@ export default function Pipeline() {
                   </Text>
                 ) : (
                   col.map((a) => (
-                    <KanbanCard key={a.id} app={a} onPress={() => router.push(`/(app)/app/${a.id}`)} />
+                    <KanbanCard
+                      key={a.id}
+                      app={a}
+                      onPress={() => router.push(`/(app)/app/${a.id}`)}
+                      onLongPress={() => setMovingApp(a)}
+                    />
                   ))
                 )}
               </View>
@@ -120,6 +136,8 @@ export default function Pipeline() {
           })}
         </ScrollView>
       )}
+
+      <StatusPickerSheet app={movingApp} onSelect={move} onClose={() => setMovingApp(null)} />
     </SafeAreaView>
   );
 }

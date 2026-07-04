@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { registerForPush } from '@/lib/push';
-import { openExternalUrl } from '@/lib/linking';
+import { openGmail } from '@/lib/linking';
 import { Dot, type DotMood } from '@/components/Dot';
 import { STATUS, T } from '@/theme/tokens';
 
@@ -187,10 +187,7 @@ export default function Onboarding() {
                         <Text style={styles.copyChipText}>{copied ? 'COPIED' : 'COPY'}</Text>
                       </Pressable>
                     </View>
-                    <Pressable
-                      onPress={() => openExternalUrl('https://mail.google.com/mail/u/0/#settings/filters', 'Gmail filters')}
-                      style={styles.gmailBtn}
-                    >
+                    <Pressable onPress={openGmail} style={styles.gmailBtn}>
                       <Ionicons name="mail-outline" size={15} color={T.greenDark} />
                       <Text style={styles.gmailBtnText}>Set up Gmail forwarding</Text>
                     </Pressable>

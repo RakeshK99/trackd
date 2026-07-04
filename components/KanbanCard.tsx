@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { STATUS, T, type AppStatus } from '@/theme/tokens';
 import type { Application } from '@/lib/types';
+import { CompanyAvatar } from '@/components/CompanyAvatar';
 
 function shortDate(iso: string | null) {
   if (!iso) return '';
@@ -12,12 +13,21 @@ function daysSilent(lastActivity: string) {
   return Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000);
 }
 
-export function KanbanCard({ app, onPress }: { app: Application; onPress: () => void }) {
+export function KanbanCard({
+  app,
+  onPress,
+  onLongPress,
+}: {
+  app: Application;
+  onPress: () => void;
+  onLongPress?: () => void;
+}) {
   const s = STATUS[app.status as keyof typeof STATUS] ?? STATUS.applied;
   const isGhost = app.status === 'ghosted';
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       style={{
         backgroundColor: isGhost ? '#FDF7EB' : '#fff',
         borderRadius: 12,
@@ -29,9 +39,12 @@ export function KanbanCard({ app, onPress }: { app: Application; onPress: () => 
       }}
     >
       <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: s.color }} />
-      <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 14, color: T.ink, marginBottom: 3 }}>
-        {app.company}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+        <CompanyAvatar company={app.company} status={app.status} size={22} />
+        <Text style={{ flex: 1, fontFamily: 'Outfit_500Medium', fontSize: 14, color: T.ink }} numberOfLines={1}>
+          {app.company}
+        </Text>
+      </View>
       <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 12, color: T.ink2, lineHeight: 16 }}>
         {app.role}
       </Text>

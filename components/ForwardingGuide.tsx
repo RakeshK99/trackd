@@ -2,11 +2,14 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { T } from '@/theme/tokens';
-import { openExternalUrl } from '@/lib/linking';
+import { openExternalUrl, openGmail } from '@/lib/linking';
 
+// There's no reliable deep link straight to Gmail's filter screen on mobile
+// (see lib/linking.ts openGmail), so these steps spell out the manual nav
+// from wherever "Open Gmail" actually lands.
 const STEPS = [
-  'Open Gmail settings → Filters (button below).',
-  'Click “Create a new filter”.',
+  'Tap "Open Gmail" below, then open the ☰ menu → Settings → tap your account → "See all settings".',
+  'Go to the "Filters and Blocked Addresses" tab → "Create a new filter".',
   'In the “Has the words” box, type: recruiter OR interview OR application OR hiring',
   'Click “Create filter”, then check “Forward it to” and pick your Trackd address.',
   "That's it — recruiter emails now flow into Trackd automatically.",
@@ -43,12 +46,9 @@ export function ForwardingGuide({ trackdEmail }: { trackdEmail: string | null | 
       </View>
 
       <View style={{ gap: 8 }}>
-        <Pressable
-          onPress={() => openExternalUrl('https://mail.google.com/mail/u/0/#settings/filters', 'Gmail filters')}
-          style={styles.primaryBtn}
-        >
+        <Pressable onPress={openGmail} style={styles.primaryBtn}>
           <Ionicons name="mail-outline" size={16} color="#fff" />
-          <Text style={styles.primaryText}>Open Gmail filters</Text>
+          <Text style={styles.primaryText}>Open Gmail</Text>
         </Pressable>
         <Pressable
           onPress={() => openExternalUrl('https://outlook.live.com/mail/0/options/mail/rules', 'Outlook rules')}

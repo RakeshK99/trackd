@@ -33,6 +33,12 @@ function AuthGate() {
       router.replace('/(auth)');
     } else if (session && inAuth) {
       router.replace(user?.onboarded ? '/(app)' : '/(auth)/onboarding');
+    } else if (session && !inAuth && user && !user.onboarded) {
+      // Covers "Replay the intro with Dot" (Settings) flipping onboarded back
+      // to false while already inside (app) — the branch above only fires
+      // when navigating *from* (auth), so without this the flag change is
+      // silently ignored and nothing happens.
+      router.replace('/(auth)/onboarding');
     }
   }, [session, loading, segments, user?.onboarded]);
 
