@@ -126,12 +126,20 @@ context; don't create a new subscription.
   There is a single account-level AgentMail webhook shared across all users/inboxes (not
   one-per-inbox) — simpler signature verification with one shared secret; the function resolves
   the owning user from `inbox_id` in the payload.
-- `functions/ghost-detector/` — meant to run on a daily cron (see README for the Supabase Studio
-  scheduler steps); flags applications with no activity in 14+ days as `ghosted` and relabels the
-  trigger-inserted `timeline_events` row to `ghost_flagged` (rather than inserting a duplicate),
-  and batches an Expo push per affected user. Deployed with `--no-verify-jwt` (the caller is a
-  scheduler, not a logged-in user) so it authenticates itself: requires
-  `Authorization: Bearer <GHOST_DETECTOR_SECRET>` or responds 401.
+- `functions/ghost-detector/` — runs on a daily cron scheduled by
+  `migrations/0004_ghost_detector_cron.sql` (pg_cron + pg_net calling the function URL directly —
+  no manual Supabase Studio step); flags applications with no activity in 14+ days as `ghosted`
+  and relabels the trigger-inserted `timeline_events` row to `ghost_flagged` (rather than
+  inserting a duplicate), and batches an Expo push per affected user. Deployed with
+  `--no-verify-jwt` (the caller is a scheduler, not a logged-in user) so it authenticates itself:
+  requires `Authorization: Bearer <GHOST_DETECTOR_SECRET>` or responds 401. The cron job's SQL
+  body looks that secret up from Supabase Vault by name (`ghost_detector_secret`) rather than
+  having it committed in the migration — see README for the one-time `vault.create_secret` step.
+- `functions/delete-account/` — deletes the calling user's account: deprovisions their AgentMail
+  pod/inbox (best-effort), then `auth.admin.deleteUser()`, which cascades to `public.users` and
+  everything owned by it. Deployed *without* `--no-verify-jwt` (the default) since it identifies
+  the caller from their own session token — never a client-supplied `user_id` — for a
+  destructive, account-wide operation like this.
 - `functions/_shared/` — `supabaseAdmin.ts` (service-role client), `push.ts` (batches Expo push
   sends in chunks of 100), `svix.ts` (webhook signature verification helper).
 - These functions run on Deno (`npm:`/`jsr:` specifier imports), which is why

@@ -4,23 +4,7 @@
 //
 // Required env: AGENTMAIL_API_KEY, AGENTMAIL_DOMAIN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts';
-
-const AGENTMAIL_BASE = 'https://api.agentmail.to/v0';
-const AGENTMAIL_KEY = Deno.env.get('AGENTMAIL_API_KEY');
-const DOMAIN = Deno.env.get('AGENTMAIL_DOMAIN') ?? 'trackd.app';
-
-async function am(path: string, init?: RequestInit) {
-  const res = await fetch(`${AGENTMAIL_BASE}${path}`, {
-    ...init,
-    headers: {
-      'Authorization': `Bearer ${AGENTMAIL_KEY}`,
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) throw new Error(`AgentMail ${path} ${res.status}: ${await res.text()}`);
-  return res.json();
-}
+import { am, AGENTMAIL_DOMAIN as DOMAIN } from '../_shared/agentmail.ts';
 
 function safeUsername(email: string, userId: string) {
   const base = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');

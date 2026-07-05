@@ -62,10 +62,15 @@ npx expo start
    npx supabase functions deploy process-email --no-verify-jwt
    npx supabase functions deploy ghost-detector --no-verify-jwt
    ```
-5. Schedule the ghost detector — in Supabase Studio → Edge Functions → Cron, daily at 09:00 UTC, hit
-   `ghost-detector` with header `Authorization: Bearer <GHOST_DETECTOR_SECRET>` (the function is
-   deployed with `--no-verify-jwt` since the caller is a scheduler, not a logged-in user, so it
-   authenticates itself via this shared secret instead — a request without it gets a 401).
+5. The ghost detector is scheduled automatically by `migrations/0004_ghost_detector_cron.sql`
+   (pg_cron + pg_net, daily at 09:00 UTC) — no manual dashboard step needed. It authenticates
+   using `GHOST_DETECTOR_SECRET`, stored in Supabase Vault rather than committed to this repo:
+   ```bash
+   npx supabase db query --linked \
+     "select vault.create_secret('<value>', 'ghost_detector_secret', 'Bearer token for ghost-detector cron');"
+   ```
+   Run that once (with the same value as the `GHOST_DETECTOR_SECRET` Edge Function secret) before
+   applying migration 0004, since its cron job body looks the secret up by name.
 
 ## AgentMail
 

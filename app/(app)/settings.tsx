@@ -10,6 +10,34 @@ import { T } from '@/theme/tokens';
 export default function Settings() {
   const { user, signOut, refreshUser } = useAuth();
   const [showGuide, setShowGuide] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function deleteAccount() {
+    setDeleting(true);
+    const { error } = await supabase.functions.invoke('delete-account');
+    setDeleting(false);
+    if (error) {
+      Alert.alert('Error', error.message ?? 'Could not delete account. Try again.');
+      return;
+    }
+    try {
+      await signOut();
+    } catch {
+      // Account is already deleted server-side — the local session is stale
+      // regardless of whether this call itself succeeds.
+    }
+  }
+
+  function confirmDelete() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, every application, and your Trackd inbox. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: deleteAccount },
+      ],
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.surface2 }} edges={['top']}>
@@ -75,6 +103,15 @@ export default function Settings() {
           <Text style={styles.email}>{user?.email}</Text>
           <Pressable onPress={signOut} style={[styles.copyBtn, { backgroundColor: '#FBECEB' }]}>
             <Text style={[styles.copyText, { color: '#A52928' }]}>Sign out</Text>
+          </Pressable>
+          <Pressable
+            onPress={confirmDelete}
+            disabled={deleting}
+            style={[styles.copyBtn, { backgroundColor: 'transparent', opacity: deleting ? 0.5 : 1 }]}
+          >
+            <Text style={[styles.copyText, { color: T.ink3 }]}>
+              {deleting ? 'Deleting…' : 'Delete account'}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
