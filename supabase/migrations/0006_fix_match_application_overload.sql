@@ -1,0 +1,11 @@
+-- Migration 0005 added a p_threshold parameter to match_application via
+-- `create or replace function`. In Postgres that does NOT replace a
+-- function when the parameter list changes — it creates a second, distinct
+-- overload instead. That left both the old 2-arg and new 3-arg versions in
+-- place, which makes every 2-arg call (process-email's primary match path)
+-- ambiguous: "function match_application(...) is not unique". Confirmed via
+-- direct testing — this silently broke status updates for every already-
+-- tracked application (interview/offer/etc. emails stopped moving cards)
+-- since the deploy of 0005, while the new 3-arg auto-create-guard call
+-- (explicit p_threshold) kept working fine.
+drop function if exists public.match_application(uuid, text);
