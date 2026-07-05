@@ -55,14 +55,7 @@ export default function AddJob() {
     });
     setBusy(false);
     if (error) {
-      if (error.message?.includes('FREE_TIER_LIMIT')) {
-        Alert.alert(
-          'Free tier limit',
-          'You hit 15 active applications. Upgrade to Trackd Pro or delete one to add more.',
-        );
-      } else {
-        Alert.alert('Error', error.message);
-      }
+      Alert.alert('Error', error.message);
       return;
     }
     if (data) upsertLocal(data);

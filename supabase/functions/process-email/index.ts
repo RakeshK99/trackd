@@ -261,8 +261,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (createErr) {
-      // Most likely FREE_TIER_LIMIT from enforce_active_app_limit() — don't
-      // fail the webhook over it, just skip creating.
       console.error('auto-create application failed:', createErr.message);
     } else if (created) {
       appId = created.id;

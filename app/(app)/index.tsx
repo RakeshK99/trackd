@@ -85,13 +85,6 @@ export default function Pipeline() {
         ))}
       </View>
 
-      {user?.plan === 'free' && (
-        <View style={styles.freeBanner}>
-          <Text style={styles.freeBannerText}>
-            {user.active_app_count} / 15 applications · free tier
-          </Text>
-        </View>
-      )}
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -194,19 +187,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginTop: 4,
-  },
-  freeBanner: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingVertical: 6,
-    backgroundColor: T.greenSubtle,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  freeBannerText: {
-    fontFamily: 'DMMono_400Regular',
-    fontSize: 11,
-    color: T.greenDark,
-    letterSpacing: 0.4,
   },
 });

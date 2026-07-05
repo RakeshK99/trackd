@@ -43,7 +43,7 @@ export default function Settings() {
           <Text style={styles.body}>
             {user?.plan === 'pro'
               ? 'Unlimited apps + AI features.'
-              : `${user?.active_app_count ?? 0} / 15 active applications.`}
+              : `${user?.active_app_count ?? 0} active applications.`}
           </Text>
           {user?.plan !== 'pro' && (
             <Pressable
