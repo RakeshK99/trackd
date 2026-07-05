@@ -245,44 +245,62 @@ Deno.serve(async (req) => {
     classification.confidence >= 0.6 &&
     classification.company
   ) {
-    // No existing application matched, but this reads as a fresh
-    // "application received" confirmation — the company/role likely was
-    // never added to Trackd manually (applied via LinkedIn, a careers
-    // page, etc.), so create it instead of silently dropping the email.
-    const { data: created, error: createErr } = await supabaseAdmin
-      .from('applications')
-      .insert({
-        user_id: user.id,
-        company: classification.company,
-        role: classification.role?.trim() || 'Role not specified',
-        status: 'applied',
-      })
-      .select()
-      .single();
+    // No existing application matched at the normal threshold, but this
+    // reads as a fresh "application received" confirmation. Before
+    // creating, guard against a near-duplicate: a normalized-suffix
+    // mismatch (e.g. "Meta" vs "Meta Platforms Inc" — similarity 0.33,
+    // below the 0.45 match threshold but clearly not nothing) likely means
+    // this is the same company under a different name, so skip creating
+    // rather than risk a visible duplicate in the pipeline.
+    const { data: looseMatch, error: looseErr } = await supabaseAdmin.rpc('match_application', {
+      p_user_id: user.id,
+      p_company: classification.company,
+      p_threshold: 0.3,
+    });
+    if (looseErr) console.error('loose match_application error:', looseErr.message);
+    const loose = Array.isArray(looseMatch) ? looseMatch[0] : looseMatch;
 
-    if (createErr) {
-      console.error('auto-create application failed:', createErr.message);
-    } else if (created) {
-      appId = created.id;
-      console.log('auto-created application', appId, 'for company', classification.company);
+    if (loose) {
+      console.log('skipping auto-create: possible near-duplicate of', loose.company, 'sim', loose.sim);
+    } else {
+      // The company/role likely was never added to Trackd manually
+      // (applied via LinkedIn, a careers page, etc.), so create it
+      // instead of silently dropping the email.
+      const { data: created, error: createErr } = await supabaseAdmin
+        .from('applications')
+        .insert({
+          user_id: user.id,
+          company: classification.company,
+          role: classification.role?.trim() || 'Role not specified',
+          status: 'applied',
+        })
+        .select()
+        .single();
 
-      // INSERT doesn't fire trg_log_status_change (update-only), so log the
-      // creation explicitly rather than relying on the trigger.
-      await supabaseAdmin.from('timeline_events').insert({
-        application_id: appId,
-        user_id: user.id,
-        event_type: 'created',
-        new_status: 'applied',
-        email_subject: subject,
-        email_from: fromAddr,
-      });
+      if (createErr) {
+        console.error('auto-create application failed:', createErr.message);
+      } else if (created) {
+        appId = created.id;
+        console.log('auto-created application', appId, 'for company', classification.company);
 
-      await sendPushToUser(
-        user.id,
-        'Trackd',
-        `${classification.company} added to your pipeline`,
-        { application_id: appId },
-      );
+        // INSERT doesn't fire trg_log_status_change (update-only), so log
+        // the creation explicitly rather than relying on the trigger.
+        await supabaseAdmin.from('timeline_events').insert({
+          application_id: appId,
+          user_id: user.id,
+          event_type: 'created',
+          new_status: 'applied',
+          email_subject: subject,
+          email_from: fromAddr,
+        });
+
+        await sendPushToUser(
+          user.id,
+          'Trackd',
+          `${classification.company} added to your pipeline`,
+          { application_id: appId },
+        );
+      }
     }
   } else {
     console.log('no status update applied (appId=%s, mappedStatus=%s)', appId, mappedStatus);
